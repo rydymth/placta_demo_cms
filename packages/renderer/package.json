@@ -1,0 +1,9 @@
+{
+  "name": "@placta/renderer",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@placta/contracts": "*" },
+  "peerDependencies": { "@angular/common": "^22.2.0", "@angular/core": "^22.2.0" }
+}

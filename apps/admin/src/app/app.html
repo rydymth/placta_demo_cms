@@ -1,0 +1,146 @@
+<header><strong>Placta CMS</strong>@if (api.user) { <span>{{ api.user.email }}</span>@if (publicOrigin) { <a class="icon-button" [href]="publicOrigin" target="_blank" rel="noopener" aria-label="Open public website" title="Open public website">↗</a> }<button type="button" (click)="logout()" [disabled]="busy">Log out</button> }</header>
+@if (toast; as currentToast) {
+  <div class="toast" [class.toast--error]="currentToast.kind === 'error'" [class.toast--success]="currentToast.kind === 'success'" [attr.role]="currentToast.kind === 'error' ? 'alert' : 'status'">
+    <span>{{ currentToast.message }}</span>
+    <button type="button" (click)="dismissToast()" aria-label="Dismiss notification">Dismiss</button>
+  </div>
+}
+@if (!api.user) {
+  <main class="login">
+    <h1>{{ registering ? 'Create your account' : 'Sign in' }}</h1>
+    <p>{{ registering ? 'Create an account, then add a passkey after signing in.' : 'Use your password or passkey to continue.' }}</p>
+    <form (ngSubmit)="registering ? register() : login()">
+      @if (registering) {
+        <label>Name <input name="name" autocomplete="name" [(ngModel)]="registerName" required></label>
+      }
+      <label>Email <input type="email" name="email" autocomplete="username webauthn" [(ngModel)]="email" required></label>
+      <label>Password <input type="password" name="password" [attr.autocomplete]="registering ? 'new-password' : 'current-password'" [(ngModel)]="password" required></label>
+      <button type="submit" [disabled]="busy">{{ registering ? 'Create account' : 'Sign in' }}</button>
+      @if (!registering) { <button type="button" (click)="loginPasskey()" [disabled]="busy">Sign in with passkey</button> }
+      <button type="button" (click)="registering = !registering" [disabled]="busy">{{ registering ? 'I already have an account' : 'Create an account' }}</button>
+      @if (aboutUrl) { <a class="about-link" [href]="aboutUrl" target="_blank" rel="noopener">About this CMS ↗</a> }
+    </form>
+  </main>
+} @else {
+  <main class="layout">
+    <aside>
+      <h2>Pages</h2>
+      @for (page of pages; track page.id) {
+        <button class="page-link" type="button" (click)="open(page.id)" [disabled]="busy">{{ page.title }} <small>{{ page.status }}</small></button>
+      }
+      <h3>Create page</h3>
+      <label>Title <input [(ngModel)]="newTitle"></label>
+      <label>Slug <input [(ngModel)]="newSlug" placeholder="about-us or /"></label>
+      <button type="button" (click)="create()" [disabled]="busy">Create draft</button>
+      <details>
+        <summary>Passkeys</summary>
+        <button type="button" (click)="refreshPasskeys()" [disabled]="busy">Load passkeys</button>
+        <label>Password for confirmation <input type="password" autocomplete="current-password" [(ngModel)]="reauthPassword"></label>
+        <label>New passkey name <input [(ngModel)]="passkeyName"></label>
+        <button type="button" (click)="addPasskey()" [disabled]="busy">Add passkey</button>
+        @for (key of passkeys; track key.id) {
+          <p>{{ key.name }} <button type="button" (click)="revokePasskey(key.id)" [disabled]="busy">Remove</button></p>
+        }
+      </details>
+    </aside>
+    @if (draft && selected) {
+      <section class="editor">
+        <h1>Edit {{ selected.title }}</h1>
+        <p>Status: {{ selected.status }} @if (selected.hasUnpublishedChanges) { · unpublished changes }</p>
+        @if (!canEdit && editLock) { <p class="lock-notice" role="status">{{ editLock.ownerName }} is editing this page. Editing will unlock after their session ends or the 90-second lease expires.</p> }
+        <fieldset [disabled]="!canEdit">
+        <label>Title <input [(ngModel)]="draft.title"></label>
+        <label>Slug <input [(ngModel)]="draft.slug"></label>
+        @if (draft.seo; as seo) {
+          <label>SEO title <input [(ngModel)]="seo.title"></label>
+          <label>SEO description <textarea [(ngModel)]="seo.description"></textarea></label>
+        } @else { <button type="button" (click)="draft.seo = {}">Add SEO settings</button> }
+        <div class="actions">
+          <button type="button" (click)="save()" [disabled]="busy">Save draft</button>
+          <button type="button" (click)="publish()" [disabled]="busy">Save and publish</button>
+          <button type="button" (click)="unpublish()" [disabled]="busy || selected.status !== 'published'">Unpublish</button>
+          <button type="button" (click)="duplicate()" [disabled]="busy">Duplicate page</button>
+          <button type="button" (click)="remove()" [disabled]="busy">Delete page</button>
+        </div>
+        <h2>Sections</h2>
+        <div class="actions"><button type="button" (click)="add('hero')">Add hero</button><button type="button" (click)="add('text')">Add text</button></div>
+        @for (section of draft.components; track section.id; let i = $index) {
+          <fieldset>
+            <legend>{{ section.type }}</legend>
+            @if (hero(section); as item) {
+              <label>Heading <input [(ngModel)]="item.content.heading"></label>
+              <label>Subtitle <input [ngModel]="item.content.subTitle || ''" (ngModelChange)="optionalHero(item, 'subTitle', $event)"></label>
+              <label>Button text <input [ngModel]="item.content.ctaText || ''" (ngModelChange)="optionalHero(item, 'ctaText', $event)"></label>
+              <label>Button URL <input [ngModel]="item.content.ctaHref || ''" (ngModelChange)="optionalHero(item, 'ctaHref', $event)"></label>
+            }
+            @if (text(section); as item) {
+              <label>Heading <input [(ngModel)]="item.content.heading"></label>
+              <label>Body <textarea [(ngModel)]="item.content.body"></textarea></label>
+            }
+            <details>
+              <summary>Presentation</summary>
+              <label>Theme
+                <select [ngModel]="section.presentation?.theme ?? ''" (ngModelChange)="setPresentationValue(section, 'theme', $event)">
+                  <option value="">Default</option>
+                  <option value="muted">Muted</option>
+                  <option value="primary">Primary</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </label>
+              <label>Alignment
+                <select [ngModel]="section.presentation?.alignment ?? ''" (ngModelChange)="setPresentationValue(section, 'alignment', $event)">
+                  <option value="">Left</option>
+                  <option value="center">Center</option>
+                  <option value="right">Right</option>
+                </select>
+              </label>
+              <label>Spacing
+                <select [ngModel]="section.presentation?.spacing ?? ''" (ngModelChange)="setPresentationValue(section, 'spacing', $event)">
+                  <option value="">Normal</option>
+                  <option value="compact">Compact</option>
+                  <option value="spacious">Spacious</option>
+                </select>
+              </label>
+              <label>Content width
+                <select [ngModel]="section.presentation?.width ?? ''" (ngModelChange)="setPresentationValue(section, 'width', $event)">
+                  <option value="">Content</option>
+                  <option value="wide">Wide</option>
+                  <option value="full">Full width</option>
+                </select>
+              </label>
+              <label>Animation
+                <select [ngModel]="section.presentation?.animation ?? ''" (ngModelChange)="setPresentationValue(section, 'animation', $event)">
+                  <option value="">None</option>
+                  <option value="fade-in">Fade in</option>
+                  <option value="fade-up">Fade up</option>
+                  <option value="slide-left">Slide from left</option>
+                  <option value="slide-right">Slide from right</option>
+                </select>
+              </label>
+              <label>Animation duration
+                <select [ngModel]="section.presentation?.animationDuration ?? ''" (ngModelChange)="setPresentationValue(section, 'animationDuration', $event)">
+                  <option value="">Normal</option>
+                  <option value="fast">Fast</option>
+                  <option value="normal">Normal</option>
+                  <option value="slow">Slow</option>
+                </select>
+              </label>
+              <label>Animation delay (ms)
+                <input type="number" min="0" max="1000" step="100"
+                  [ngModel]="section.presentation?.animationDelayMs ?? 0"
+                  (ngModelChange)="setAnimationDelay(section, $event)">
+              </label>
+            </details>
+            <div class="actions"><button type="button" (click)="move(i, -1)" [disabled]="i === 0">Move up</button><button type="button" (click)="move(i, 1)" [disabled]="i === draft.components.length - 1">Move down</button><button type="button" (click)="duplicateSection(i)">Duplicate</button><button type="button" (click)="draft.components.splice(i, 1)">Remove</button></div>
+          </fieldset>
+        }
+        <details><summary>Published revisions</summary>
+          @for (item of revisions; track item.id) { <button type="button" (click)="viewRevision(item.id)">Version {{ item.version }} · {{ item.publishedAt }}</button> }
+          @if (revision) { <h3>Version {{ revision.version }}</h3><cms-page-renderer [page]="revision.snapshot" /> }
+        </details>
+        </fieldset>
+      </section>
+      <section class="preview"><h2>Draft preview</h2><p>Only visible here until published.</p><cms-page-renderer [page]="draft" /></section>
+    } @else { <section><h1>Select or create a page</h1></section> }
+  </main>
+}

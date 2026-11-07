@@ -1,0 +1,21 @@
+{
+  email {$ACME_EMAIL}
+}
+
+{$SITE_DOMAIN} {
+  handle /api/* {
+    reverse_proxy api:6969
+  }
+
+  reverse_proxy website:4000
+}
+
+admin.{$SITE_DOMAIN} {
+  handle /api/* {
+    reverse_proxy api:6969
+  }
+
+  root * /srv/admin
+  try_files {path} /index.html
+  file_server
+}

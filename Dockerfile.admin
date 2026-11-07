@@ -1,0 +1,18 @@
+FROM node:24-bookworm-slim AS build
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/admin/package.json apps/admin/package.json
+COPY apps/website/package.json apps/website/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/renderer/package.json packages/renderer/package.json
+RUN npm ci
+
+COPY . .
+RUN npm run build:contracts && npm --workspace @placta/admin run build
+
+FROM caddy:2.10-alpine
+
+COPY Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /app/apps/admin/dist/admin/browser /srv/admin

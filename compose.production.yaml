@@ -1,0 +1,52 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      PORT: 6969
+      MONGODB_URI: ${MONGODB_URI}
+      ADMIN_ORIGIN: ${ADMIN_ORIGIN}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN}
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID}
+      WEBAUTHN_RP_NAME: ${WEBAUTHN_RP_NAME}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      TRUST_PROXY: "true"
+    restart: unless-stopped
+    mem_limit: 384m
+
+  website:
+    build:
+      context: .
+      dockerfile: Dockerfile.website
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      API_ORIGIN: http://api:6969/api/v1
+    restart: unless-stopped
+    mem_limit: 384m
+
+  caddy:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - website
+    restart: unless-stopped
+    mem_limit: 128m
+
+volumes:
+  caddy_data:
+  caddy_config:
