@@ -33,7 +33,8 @@ services:
       context: .
       dockerfile: Dockerfile.admin
     environment:
-      SITE_DOMAIN: ${SITE_DOMAIN}
+      PUBLIC_HOST: ${PUBLIC_HOST}
+      ADMIN_HOST: ${ADMIN_HOST}
       ACME_EMAIL: ${ACME_EMAIL}
     ports:
       - "80:80"

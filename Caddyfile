@@ -2,7 +2,7 @@
   email {$ACME_EMAIL}
 }
 
-{$SITE_DOMAIN} {
+{$PUBLIC_HOST} {
   handle /api/* {
     reverse_proxy api:6969
   }
@@ -10,7 +10,7 @@
   reverse_proxy website:4000
 }
 
-admin.{$SITE_DOMAIN} {
+{$ADMIN_HOST} {
   handle /api/* {
     reverse_proxy api:6969
   }
